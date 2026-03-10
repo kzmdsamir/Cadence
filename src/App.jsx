@@ -166,10 +166,14 @@ function App() {
     setSelectedDate(date)
     setNoteLinkType(item?.linkType || '')
 
-    if (!item && !type) {
+    if (type) {
+      setModalType(type)
+    } else if (!item) {
       setModalType('select')
-    } else if (item?.date || type === 'event') {
+    } else if (item.date || type === 'event') {
       setModalType('event')
+    } else if (item.content !== undefined || item.linkType !== undefined || type === 'note') {
+      setModalType('note')
     } else {
       setModalType('task')
     }
@@ -563,9 +567,9 @@ function App() {
               <div className="project-item-date">
                 {task.dueDate ? format(new Date(task.dueDate), 'h:mm a') : ''} • {task.status}
               </div>
-              {notes.filter(n => n.link_type === 'task' && n.link_id === task.id).length > 0 && (
+              {notes.filter(n => n.linkType === 'task' && n.linkId === task.id).length > 0 && (
                 <div className="linked-notes-count">
-                  {notes.filter(n => n.link_type === 'task' && n.link_id === task.id).length} note(s)
+                  {notes.filter(n => n.linkType === 'task' && n.linkId === task.id).length} note(s)
                 </div>
               )}
             </div>
@@ -575,7 +579,7 @@ function App() {
         </div>
 
         {events.slice(0, 3).map(event => {
-          const linkedNotes = notes.filter(n => n.link_type === 'event' && n.link_id === event.id)
+          const linkedNotes = notes.filter(n => n.linkType === 'event' && n.linkId === event.id)
           if (linkedNotes.length === 0) return null
           return (
             <div key={`notes-${event.id}`} className="sidebar-section linked-notes-section">
@@ -630,7 +634,7 @@ function App() {
               </button>
             </div>
 
-            <button className="add-btn-main" onClick={() => setModalType('select')}>
+            <button className="add-btn-main" onClick={() => openModal()}>
               <Plus size={24} />
             </button>
           </div>
@@ -691,7 +695,7 @@ function App() {
                   {notif.title}
                 </div>
                 <div className="panel-item-desc">{notif.description}</div>
-                <div className="panel-item-date">{formatTime(notif.created_at)}</div>
+                <div className="panel-item-date">{formatTime(notif.createdAt)}</div>
               </div>
             ))
           )}
@@ -702,10 +706,7 @@ function App() {
         <div className="panel-header">
           <h2>Notes</h2>
           <div className="panel-actions">
-            <button className="panel-btn add-btn" onClick={() => {
-              setEditingItem({ isNew: true })
-              setModalOpen(true)
-            }}>
+            <button className="panel-btn add-btn" onClick={handleAddNote}>
               <Plus size={16} />
             </button>
             <button className="panel-btn" onClick={closePanel}>
@@ -731,10 +732,10 @@ function App() {
               >
                 <div className="panel-item-title">
                   {note.title}
-                  {note.link_type && <span className="link-badge">{note.link_type}</span>}
+                  {note.linkType && <span className="link-badge">{note.linkType}</span>}
                 </div>
                 <div className="panel-item-desc">{note.content}</div>
-                <div className="panel-item-date">{format(new Date(note.created_at), 'MMM d, yyyy')}</div>
+                <div className="panel-item-date">{format(new Date(note.createdAt), 'MMM d, yyyy')}</div>
               </div>
             ))
           )}
