@@ -563,7 +563,7 @@ function App() {
     <div className="app-container">
       <aside className="sidebar-left">
         <div className="sidebar-header">
-          <h2>My Dashboard</h2>
+          <h2>Cadence</h2>
           <p>Manage your events & tasks</p>
         </div>
 
