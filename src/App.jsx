@@ -561,7 +561,7 @@ function App() {
 
   return (
     <div className="app-container">
-      <aside className="sidebar-left">
+      <aside className={`sidebar-left ${sidebarCollapsed ? 'collapsed' : ''}`}>
         <div className="sidebar-header">
           <h2>Cadence</h2>
           <p>Manage your events & tasks</p>
@@ -681,12 +681,13 @@ function App() {
 
         <div className="sidebar-footer">
           <button className="collapse-btn" onClick={() => setSidebarCollapsed(!sidebarCollapsed)}>
-            {sidebarCollapsed ? '▲' : '▼'} {sidebarCollapsed ? 'Expand' : 'Collapse'}
+            {sidebarCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+            {!sidebarCollapsed && <span>Collapse</span>}
           </button>
         </div>
       </aside>
 
-      <main className="main-content">
+      <main className={`main-content ${sidebarCollapsed ? 'collapsed' : ''}`}>
         <header className="header">
           <div className="header-left">
             <h1>Dashboard</h1>

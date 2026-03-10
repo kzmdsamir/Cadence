@@ -1838,3 +1838,108 @@ body {
   text-align: center;
   padding: 10px;
 }
+
+/* Professional Sidebar Collapse UI/UX */
+.sidebar-left {
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.main-content {
+  transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar-left.collapsed {
+  width: 80px;
+}
+
+.sidebar-left.collapsed .sidebar-header h2,
+.sidebar-left.collapsed .sidebar-header p,
+.sidebar-left.collapsed .user-details,
+.sidebar-left.collapsed .sidebar-progress,
+.sidebar-left.collapsed .sidebar-action-btn span,
+.sidebar-left.collapsed .section-title,
+.sidebar-left.collapsed .project-item-title,
+.sidebar-left.collapsed .project-item-date,
+.sidebar-left.collapsed .project-item-desc,
+.sidebar-left.collapsed .linked-notes-count,
+.sidebar-left.collapsed .no-tasks,
+.sidebar-left.collapsed .sidebar-footer span {
+  display: none;
+}
+
+.sidebar-left.collapsed .sidebar-header {
+  padding: 28px 0 20px;
+  display: flex;
+  justify-content: center;
+}
+
+.sidebar-left.collapsed .sidebar-header::after {
+  left: 50%;
+  transform: translateX(-50%);
+  width: 20px;
+}
+
+.sidebar-left.collapsed .user-info {
+  padding: 20px 0;
+  justify-content: center;
+}
+
+.sidebar-left.collapsed .sidebar-action-btn {
+  padding: 12px 0;
+  justify-content: center;
+}
+
+.sidebar-left.collapsed .sidebar-badge {
+  position: absolute;
+  top: 4px;
+  right: 18px;
+  padding: 2px 4px;
+  font-size: 9px;
+  min-width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sidebar-left.collapsed .project-item {
+  padding: 12px 0;
+  display: flex;
+  justify-content: center;
+}
+
+.sidebar-left.collapsed .project-item .dot {
+  width: 12px;
+  height: 12px;
+  margin: 0;
+}
+
+.sidebar-left.collapsed .collapse-btn {
+  justify-content: center;
+  padding: 12px 0;
+}
+
+.main-content.collapsed {
+  margin-left: 80px;
+}
+
+.collapse-btn {
+  width: 100%;
+  padding: 12px 20px;
+  background: transparent;
+  border: none;
+  border-top: 1px solid var(--border);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.collapse-btn:hover {
+  background: var(--surface-light);
+  color: var(--text);
+}
