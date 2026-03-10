@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
-import { 
-  Bell, FileText, Plus, X, Calendar, 
-  CheckSquare, Search, ChevronLeft, ChevronRight, 
+import {
+  Bell, FileText, Plus, X, Calendar,
+  CheckSquare, Search, ChevronLeft, ChevronRight,
   Trash2, Save, LogOut, User
 } from 'lucide-react'
-import { 
-  format, startOfMonth, endOfMonth, startOfWeek, 
+import {
+  format, startOfMonth, endOfMonth, startOfWeek,
   endOfWeek, addDays, addMonths, subMonths, isSameMonth,
   isToday
 } from 'date-fns'
@@ -20,7 +20,7 @@ function App() {
   const [authMode, setAuthMode] = useState('login')
   const [authError, setAuthError] = useState('')
   const [loading, setLoading] = useState(true)
-  
+
   const [currentDate, setCurrentDate] = useState(new Date())
   const [currentView, setCurrentView] = useState('event')
   const [events, setEvents] = useState([])
@@ -123,10 +123,33 @@ function App() {
         apiCall('/notes'),
         apiCall('/notifications')
       ])
+
+      // Map backend snake_case to frontend camelCase
+      const mappedTasks = tasksData.map(t => ({
+        ...t,
+        dueDate: t.due_date,
+        createdAt: t.created_at
+      }))
+
+      const mappedNotes = notesData.map(n => ({
+        ...n,
+        linkType: n.link_type,
+        linkId: n.link_id,
+        createdAt: n.created_at
+      }))
+
+      const mappedNotifications = notificationsData.map(n => ({
+        ...n,
+        unread: !n.is_read,
+        linkType: n.link_type,
+        linkId: n.link_id,
+        createdAt: n.created_at
+      }))
+
       setEvents(eventsData)
-      setTasks(tasksData)
-      setNotes(notesData)
-      setNotifications(notificationsData.map(n => ({ ...n, unread: !n.is_read })))
+      setTasks(mappedTasks)
+      setNotes(mappedNotes)
+      setNotifications(mappedNotifications)
     } catch (err) {
       console.error('Failed to load data:', err)
       if (err.message.includes('Invalid token') || err.message.includes('No token')) {
@@ -142,7 +165,7 @@ function App() {
     setEditingItem(item)
     setSelectedDate(date)
     setNoteLinkType(item?.linkType || '')
-    
+
     if (!item && !type) {
       setModalType('select')
     } else if (item?.date || type === 'event') {
@@ -150,7 +173,7 @@ function App() {
     } else {
       setModalType('task')
     }
-    
+
     setModalOpen(true)
   }
 
@@ -189,12 +212,12 @@ function App() {
     e.preventDefault()
     const form = e.target
     const formData = new FormData(form)
-    
+
     const title = formData.get('title')
     const desc = formData.get('desc')
     const color = formData.get('color')
     const isEvent = modalType === 'event' || editingItem?.date
-    
+
     try {
       if (editingItem?.id) {
         if (isEvent) {
@@ -230,6 +253,7 @@ function App() {
             method: 'POST',
             body: JSON.stringify({ title, description: desc, color, due_date: dueDate, status: formData.get('status') || 'pending' })
           })
+          // Map backend due_date to frontend dueDate for local state consistency
           setTasks([...tasks, { ...newTask, dueDate: newTask.due_date }])
         }
       }
@@ -243,12 +267,12 @@ function App() {
     e.preventDefault()
     const form = e.target
     const formData = new FormData(form)
-    
+
     const title = formData.get('title')
     const content = formData.get('content')
     const linkType = formData.get('linkType')
     const linkId = formData.get('linkId')
-    
+
     try {
       if (editingItem?.id && !editingItem.isNew) {
         await apiCall(`/notes/${editingItem.id}`, {
@@ -256,14 +280,20 @@ function App() {
           body: JSON.stringify({ title, content, link_type: linkType || null, link_id: linkId ? parseInt(linkId) : null })
         })
         setNotes(notes.map(n => n.id === editingItem.id ? {
-          ...n, title, content, link_type: linkType, link_id: linkId ? parseInt(linkId) : null
+          ...n, title, content, linkType, linkId: linkId ? parseInt(linkId) : null
         } : n))
       } else {
         const newNote = await apiCall('/notes', {
           method: 'POST',
           body: JSON.stringify({ title, content, link_type: linkType || null, link_id: linkId ? parseInt(linkId) : null })
         })
-        setNotes([...notes, { ...newNote, date: new Date().toISOString() }])
+        // Map backend link_type/link_id to frontend camelCase
+        setNotes([...notes, {
+          ...newNote,
+          linkType: newNote.link_type,
+          linkId: newNote.link_id,
+          createdAt: newNote.created_at || new Date().toISOString()
+        }])
       }
     } catch (err) {
       console.error('Failed to save note:', err)
@@ -299,7 +329,7 @@ function App() {
   const markAsRead = async (id) => {
     try {
       await apiCall(`/notifications/${id}/read`, { method: 'PUT' })
-      setNotifications(notifications.map(n => 
+      setNotifications(notifications.map(n =>
         n.id === id ? { ...n, unread: false } : n
       ))
     } catch (err) {
@@ -311,7 +341,7 @@ function App() {
     const date = new Date(time)
     const now = new Date()
     const diff = now - date
-    
+
     if (diff < 60000) return 'Just now'
     if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`
     if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`
@@ -339,8 +369,8 @@ function App() {
       for (let i = 0; i < 7; i++) {
         const currentDay = day
         const dateStr = format(currentDay, 'yyyy-MM-dd')
-        
-        const dayEvents = currentView === 'event' 
+
+        const dayEvents = currentView === 'event'
           ? events.filter(e => format(new Date(e.date), 'yyyy-MM-dd') === dateStr)
           : tasks.filter(t => t.dueDate && t.dueDate.startsWith(dateStr))
 
@@ -348,8 +378,8 @@ function App() {
         const isCurrentMonth = isSameMonth(currentDay, monthStart)
 
         days.push(
-          <div 
-            key={dateStr} 
+          <div
+            key={dateStr}
             className={`calendar-day ${!isCurrentMonth ? 'other-month' : ''} ${isTodayDate ? 'today' : ''}`}
             onClick={() => {
               setSelectedDate(dateStr)
@@ -359,7 +389,7 @@ function App() {
             <div className="day-number">{format(currentDay, 'd')}</div>
             <div className="day-events">
               {dayEvents.slice(0, 3).map(item => (
-                <div 
+                <div
                   key={item.id}
                   className={currentView === 'event' ? 'event-chip' : `task-chip ${item.status}`}
                   style={{ background: item.color }}
@@ -368,7 +398,7 @@ function App() {
                     openModal(item)
                   }}
                 >
-                  {currentView === 'event' 
+                  {currentView === 'event'
                     ? `${format(new Date(item.date), 'HH:mm')} ${item.title}`
                     : item.title
                   }
@@ -408,7 +438,7 @@ function App() {
         <div className="auth-box">
           <h1>Calendar App</h1>
           <p>{authMode === 'login' ? 'Sign in to your account' : 'Create a new account'}</p>
-          
+
           <form onSubmit={handleAuth} className="auth-form">
             {authMode === 'register' && (
               <div className="form-group">
@@ -424,14 +454,14 @@ function App() {
               <label className="form-label">Password</label>
               <input name="password" type="password" className="form-input" placeholder="••••••••" required />
             </div>
-            
+
             {authError && <div className="auth-error">{authError}</div>}
-            
+
             <button type="submit" className="btn btn-primary auth-btn">
               {authMode === 'login' ? 'Sign In' : 'Sign Up'}
             </button>
           </form>
-          
+
           <p className="auth-switch">
             {authMode === 'login' ? "Don't have an account? " : "Already have an account? "}
             <button onClick={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setAuthError('') }}>
@@ -473,7 +503,7 @@ function App() {
         </div>
 
         <div className="sidebar-actions">
-          <button 
+          <button
             className={`sidebar-action-btn ${panelOpen === 'notifications' ? 'active' : ''}`}
             onClick={() => openPanel('notifications')}
           >
@@ -483,8 +513,8 @@ function App() {
               <span className="sidebar-badge">{unreadCount}</span>
             )}
           </button>
-          
-          <button 
+
+          <button
             className={`sidebar-action-btn ${panelOpen === 'notes' ? 'active' : ''}`}
             onClick={() => openPanel('notes')}
           >
@@ -492,15 +522,15 @@ function App() {
             <span>Notes</span>
           </button>
         </div>
-        
+
         <div className="sidebar-section">
           <div className="section-title">
             <Calendar size={14} />
             Upcoming Events
           </div>
           {events.slice(0, 3).map(event => (
-            <div 
-              key={event.id} 
+            <div
+              key={event.id}
               className="project-item"
               onClick={() => openModal(event)}
             >
@@ -521,8 +551,8 @@ function App() {
             Today's Tasks
           </div>
           {todayTasks.length > 0 ? todayTasks.slice(0, 3).map(task => (
-            <div 
-              key={task.id} 
+            <div
+              key={task.id}
               className="project-item"
               onClick={() => openModal(task)}
             >
@@ -576,22 +606,22 @@ function App() {
             <h1>Dashboard</h1>
             <p>{format(new Date(), 'EEEE, MMMM d, yyyy')}</p>
           </div>
-          
+
           <div className="header-actions">
             <div className="search-box">
               <Search size={18} />
               <input type="text" placeholder="Search..." />
             </div>
-            
+
             <div className="toggle-container">
-              <button 
+              <button
                 className={`toggle-btn ${currentView === 'event' ? 'active' : ''}`}
                 onClick={() => setCurrentView('event')}
               >
                 <Calendar size={18} />
                 Events
               </button>
-              <button 
+              <button
                 className={`toggle-btn ${currentView === 'task' ? 'active' : ''}`}
                 onClick={() => setCurrentView('task')}
               >
@@ -631,7 +661,7 @@ function App() {
         </div>
       </main>
 
-      <div 
+      <div
         className={`panel-overlay ${panelOpen ? 'active' : ''}`}
         onClick={closePanel}
       ></div>
@@ -651,7 +681,7 @@ function App() {
             </div>
           ) : (
             notifications.map(notif => (
-              <div 
+              <div
                 key={notif.id}
                 className={`panel-item ${notif.unread ? 'unread' : ''}`}
                 onClick={() => markAsRead(notif.id)}
@@ -691,7 +721,7 @@ function App() {
             </div>
           ) : (
             notes.map(note => (
-              <div 
+              <div
                 key={note.id}
                 className="panel-item"
                 onClick={() => {
@@ -716,15 +746,15 @@ function App() {
           <div className="modal-header">
             <h2>
               {modalType === 'select' ? 'Add New' :
-               modalType === 'note' ? 'Add Note' : 
-               editingItem?.id ? (editingItem.date ? 'Edit Event' : 'Edit Task') :
-               modalType === 'event' ? 'Add Event' : 'Add Task'}
+                modalType === 'note' ? 'Add Note' :
+                  editingItem?.id ? (editingItem.date ? 'Edit Event' : 'Edit Task') :
+                    modalType === 'event' ? 'Add Event' : 'Add Task'}
             </h2>
             <button className="modal-close" onClick={closeModal}>
               <X size={16} />
             </button>
           </div>
-          
+
           <div className="modal-body">
             {modalType === 'select' ? (
               <div className="type-select">
@@ -810,7 +840,7 @@ function App() {
                     </div>
                     <div className="form-group">
                       <label className="form-label">Due Time</label>
-                      <input name="dueTime" type="time" className="form-input" defaultValue={editingItem?.dueDate ? editingItem.dueDate.split('T')[1]?.slice(0,5) : '09:00'} />
+                      <input name="dueTime" type="time" className="form-input" defaultValue={editingItem?.dueDate ? editingItem.dueDate.split('T')[1]?.slice(0, 5) : '09:00'} />
                     </div>
                   </div>
                 )}
