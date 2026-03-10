@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="./public/hero-banner.png" alt="Cadence Hero Banner" width="100%">
+  <img src="./public/hero-banner_2.jpg" alt="Cadence Hero Banner" width="100%">
   
   # 📅 Cadence
   
