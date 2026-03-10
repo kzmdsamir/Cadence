@@ -35,6 +35,8 @@ function App() {
   const [modalType, setModalType] = useState(null)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [modalKey, setModalKey] = useState(0)
+  const [draggedItem, setDraggedItem] = useState(null)
+  const [dragOverDate, setDragOverDate] = useState(null)
   const initialized = useRef(false)
 
   useEffect(() => {
@@ -52,6 +54,12 @@ function App() {
     if (user && token && !initialized.current) {
       initialized.current = true
       loadData()
+    }
+    return () => {
+      if (window.notifInterval) {
+        clearInterval(window.notifInterval)
+        window.notifInterval = null
+      }
     }
   }, [user, token])
 
@@ -140,7 +148,7 @@ function App() {
 
       const mappedNotifications = notificationsData.map(n => ({
         ...n,
-        unread: !n.is_read,
+        unread: n.is_read === 0 || n.is_read === false,
         linkType: n.link_type,
         linkId: n.link_id,
         createdAt: n.created_at
@@ -150,6 +158,22 @@ function App() {
       setTasks(mappedTasks)
       setNotes(mappedNotes)
       setNotifications(mappedNotifications)
+
+      // Auto-refresh notifications every minute
+      if (!window.notifInterval) {
+        window.notifInterval = setInterval(() => {
+          apiCall('/notifications').then(data => {
+            const mapped = data.map(n => ({
+              ...n,
+              unread: n.is_read === 0 || n.is_read === false,
+              linkType: n.link_type,
+              linkId: n.link_id,
+              createdAt: n.created_at
+            }))
+            setNotifications(mapped)
+          })
+        }, 60000)
+      }
     } catch (err) {
       console.error('Failed to load data:', err)
       if (err.message.includes('Invalid token') || err.message.includes('No token')) {
@@ -168,17 +192,69 @@ function App() {
 
     if (type) {
       setModalType(type)
-    } else if (!item) {
-      setModalType('select')
-    } else if (item.date || type === 'event') {
-      setModalType('event')
-    } else if (item.content !== undefined || item.linkType !== undefined || type === 'note') {
+    } else if (item && (item.content !== undefined || item.isNew)) {
       setModalType('note')
-    } else {
+    } else if (item && item.date) {
+      setModalType('event')
+    } else if (item && (item.dueDate || item.status)) {
       setModalType('task')
+    } else {
+      setModalType('select')
     }
 
     setModalOpen(true)
+  }
+
+  const handleDragStart = (item) => {
+    setDraggedItem(item)
+  }
+
+  const handleDragEnter = (e, dateStr) => {
+    e.preventDefault()
+    setDragOverDate(dateStr)
+  }
+
+  const handleDragLeave = (e) => {
+    e.preventDefault()
+    setDragOverDate(null)
+  }
+
+  const handleDrop = async (dateStr) => {
+    setDragOverDate(null)
+    if (!draggedItem) return
+    const currentItem = draggedItem
+    setDraggedItem(null)
+
+    try {
+      const isEvent = !!currentItem.date
+      const endpoint = isEvent ? `/events/${currentItem.id}` : `/tasks/${currentItem.id}`
+
+      let newDate
+      if (isEvent) {
+        const time = format(new Date(currentItem.date), 'HH:mm')
+        newDate = `${dateStr}T${time}`
+      } else {
+        const time = currentItem.dueDate ? (currentItem.dueDate.split('T')[1] || '09:00') : '09:00'
+        newDate = `${dateStr}T${time.slice(0, 5)}`
+      }
+
+      const payload = isEvent
+        ? { title: currentItem.title, description: currentItem.description, color: currentItem.color, date: newDate }
+        : { title: currentItem.title, description: currentItem.description, color: currentItem.color, due_date: newDate, status: currentItem.status }
+
+      await apiCall(endpoint, {
+        method: 'PUT',
+        body: JSON.stringify(payload)
+      })
+
+      if (isEvent) {
+        setEvents(events.map(e => e.id === currentItem.id ? { ...e, date: newDate } : e))
+      } else {
+        setTasks(tasks.map(t => t.id === currentItem.id ? { ...t, dueDate: newDate } : t))
+      }
+    } catch (err) {
+      console.error('Drop failed:', err)
+    }
   }
 
   const closeModal = () => {
@@ -384,11 +460,15 @@ function App() {
         days.push(
           <div
             key={dateStr}
-            className={`calendar-day ${!isCurrentMonth ? 'other-month' : ''} ${isTodayDate ? 'today' : ''}`}
+            className={`calendar-day ${!isCurrentMonth ? 'other-month' : ''} ${isTodayDate ? 'today' : ''} ${dragOverDate === dateStr ? 'drag-over' : ''}`}
             onClick={() => {
               setSelectedDate(dateStr)
               openModal(null, dateStr)
             }}
+            onDragOver={(e) => e.preventDefault()}
+            onDragEnter={(e) => handleDragEnter(e, dateStr)}
+            onDragLeave={handleDragLeave}
+            onDrop={() => handleDrop(dateStr)}
           >
             <div className="day-number">{format(currentDay, 'd')}</div>
             <div className="day-events">
@@ -397,6 +477,8 @@ function App() {
                   key={item.id}
                   className={currentView === 'event' ? 'event-chip' : `task-chip ${item.status}`}
                   style={{ background: item.color }}
+                  draggable
+                  onDragStart={() => handleDragStart(item)}
                   onClick={(e) => {
                     e.stopPropagation()
                     openModal(item)
@@ -878,6 +960,24 @@ function App() {
                   <button type="button" className="btn btn-secondary" onClick={closeModal}><X size={16} />Cancel</button>
                   <button type="submit" className="btn btn-primary"><Save size={16} />Save</button>
                 </div>
+
+                {editingItem?.id && (
+                  <div className="linked-notes-modal">
+                    <h3>Linked Notes</h3>
+                    <div className="linked-notes-list">
+                      {notes.filter(n => n.linkId === editingItem.id && n.linkType === (editingItem.date ? 'event' : 'task')).map(note => (
+                        <div key={note.id} className="linked-note-item">
+                          <h4>{note.title}</h4>
+                          <p>{note.content}</p>
+                          <small>{format(new Date(note.createdAt), 'MMM d, yyyy')}</small>
+                        </div>
+                      ))}
+                      {notes.filter(n => n.linkId === editingItem.id && n.linkType === (editingItem.date ? 'event' : 'task')).length === 0 && (
+                        <p className="no-notes-text">No notes linked to this {editingItem.date ? 'event' : 'task'}.</p>
+                      )}
+                    </div>
+                  </div>
+                )}
               </form>
             )}
           </div>
